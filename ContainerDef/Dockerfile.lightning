@@ -1,0 +1,50 @@
+# Use multi-stage build for more efficient image
+FROM --platform=amd64 nvcr.io/nvidia/cuda:12.2.0-runtime-ubuntu20.04 AS base
+
+# Set environment variables to avoid user interaction during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# Update SYSTEM 
+RUN apt update \
+    && apt-get install -y wget build-essential checkinstall git libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev \
+    && mkdir -p /tmp/psrc \
+    && cd /tmp/psrc \
+    && wget https://www.python.org/ftp/python/3.10.4/Python-3.10.4.tgz \
+    && tar -xvf Python-3.10.4.tgz \
+    && cd Python-3.10.4 \
+    && ./configure --enable-optimizations --prefix=/usr \
+    && make \
+    && make install \
+    && cd / \
+    && rm -rf /tmp/psrc \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG USERNAME="krux"
+
+RUN useradd --create-home --shell /bin/bash ${USERNAME} \
+    && echo "${USERNAME}:password" | chpasswd \
+    && usermod -aG sudo ${USERNAME}
+
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+
+USER ${USERNAME}
+
+# Install Python packages using pip
+RUN pip3 install --no-cache-dir \
+    torch torchvision torchaudio lightning \
+    jupyter jupyterlab tensorboard \
+    matplotlib scikit-learn pandas scipy
+
+WORKDIR /home/${USERNAME}
+
+# Install Ftrain 
+RUN git clone https://github.com/NISCHALPI/Ftrain.git && cd Ftrain && pip3 install . && cd .. && rm -rf Ftrain
+
+# Expose the Jupyter Notebook port
+EXPOSE 8888
+
+# Start JupyterLab
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--no-browser", "--allow-root"]

@@ -1,0 +1,43 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/cuda:12.2.0-runtime-ubuntu20.04
+
+%post
+    # Set environment variables to avoid user interaction during package installation
+    export DEBIAN_FRONTEND=noninteractive
+    export TZ=UTC
+	
+    # Install python 3.10
+    apt update
+    apt-get install -y wget build-essential checkinstall git libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev \
+    mkdir -p /tmp/psrc 
+    cd /tmp/psrc 
+    wget https://www.python.org/ftp/python/3.10.4/Python-3.10.4.tgz
+    tar -xvf Python-3.10.4.tgz 
+    cd Python-3.10.4 
+    ./configure --enable-optimizations --prefix=/usr
+    make
+    make install
+    cd / 
+    rm -rf /tmp/psrc 
+    apt-get autoremove -y
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+
+    # Upgrade requests
+    pip3 install --upgrade requests
+
+    # Install PyTorch, torchvision, torchaudio, and other Python packages
+    pip3 install --no-cache-dir torch torchvision torchaudio lightning jupyter jupyterlab tensorboard matplotlib scikit-learn pandas scipy
+
+    # Install Ftrain from GitHub and clean up unnecessary files
+    git clone https://github.com/NISCHALPI/Ftrain.git
+    cd Ftrain
+    pip install . 
+    cd ..
+    rm -rf Ftrain /var/lib/apt/lists/*  
+
+%runscript
+    # Expose the Jupyter Notebook port and start JupyterLab
+    jupyter lab --ip=0.0.0.0 --no-browser --allow-root
+
